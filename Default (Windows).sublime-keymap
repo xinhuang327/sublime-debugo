@@ -1,0 +1,6 @@
+[
+{ 
+	"keys": ["ctrl+'"],
+	"command": "add_go_breakpoint"
+}
+]

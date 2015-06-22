@@ -1,0 +1,7 @@
+[
+{
+    "id" : "add_go_breakpoint",
+    "caption" : "Add Go Breakpoint",
+    "command" : "add_go_breakpoint"
+}
+]
