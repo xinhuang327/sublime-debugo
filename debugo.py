@@ -8,6 +8,9 @@ instrumentPkgsToken = "{{InstrumentPkgs}}"
 class AddGoBreakpointCommand(sublime_plugin.TextCommand):
 	def run(self, edit):
 		view = self.view
+		filePath = view.file_name()
+		if not filePath.endswith(".go"):
+			return
 		# Walk through each region in the selection
 		for region in view.sel():
 			# Only interested in empty regions, otherwise they may span multiple
@@ -24,14 +27,17 @@ class AddGoBreakpointCommand(sublime_plugin.TextCommand):
 					# remove previous breakpoint
 					prevLine.b = prevLine.b+1
 					view.erase(edit, prevLine)
+					self.view.erase_regions("mark"+str(prevLine.begin()))
 				elif textContent == breakpointText:
 					line.b = line.b+1
 					view.erase(edit, line)
+					self.view.erase_regions("mark"+str(line.begin()))
 				else:
 					# add breakpoint line before current line
 					newLineContent = lineContents.replace(textContent, breakpointText+"\n")
 					# Add the text at the beginning of the line
 					view.insert(edit, line.begin(), newLineContent)
+					self.view.add_regions("mark"+str(line.begin()), [line], "mark", "circle", sublime.HIDDEN | sublime.PERSISTENT)
 
 pkgsSet = set()
 filesSet = set()
@@ -40,10 +46,9 @@ def updateBreakpointInfo(view):
 	filePath = view.file_name()
 	if not filePath.endswith(".go"):
 		return
-	bpRegion = view.find(breakpointText, 0)
-	print(bpRegion)
+	bpRegions = view.find_all(breakpointText)
 	pkgPath = getPkgPathForFile(filePath)
-	if bpRegion.empty():
+	if len(bpRegions) == 0:
 		# remove from breakpoint file list
 		print(filePath, "no breakpoint found")
 		if pkgPath in pkgsSet:
@@ -55,6 +60,10 @@ def updateBreakpointInfo(view):
 		print(filePath, "has breakpoint")
 		pkgsSet.add(pkgPath)
 		filesSet.add(filePath)
+		for region in bpRegions:
+			line = view.line(region)
+			view.add_regions("mark"+str(line.begin()), [line], "mark", "circle", sublime.HIDDEN | sublime.PERSISTENT)
+
 	print("pkgsSet", pkgsSet)
 	print("filesSet", filesSet)
 
@@ -62,9 +71,9 @@ def getPkgPathForFile(filePath):
 	prefix = "github.com"
 	idx = filePath.index(prefix)
 	subPath = filePath[idx:]
-	ridx = subPath.rindex("\\")
+	ridx = subPath.rindex(os.sep)
 	pkgPath = subPath[:ridx]
-	return pkgPath.replace("\\","/") #returns github.com/.../pkgname
+	return pkgPath.replace(os.sep,"/") #returns github.com/.../pkgname
 
 buildFileName = "xinhuang327_web_musictree_web.sublime-build"
 
@@ -76,9 +85,12 @@ class EventDump(sublime_plugin.EventListener):
 		updateBreakpointInfo(view)
 
 	def on_post_save(self, view):
+		instrumentPart = ""
+		if len(pkgsSet) > 0:
+			instrumentPart = "-instrument " + ",".join(list(pkgsSet))
 		buildFilePath = os.path.join(sublime.packages_path(), "User\\"+buildFileName)
 		f = open(buildFilePath, 'w')
-		f.write(buildFileTemplate)
+		f.write(buildFileTemplate.replace(instrumentPkgsToken, instrumentPart))
 		f.close()
  
 buildFileTemplate = """{
