@@ -27,20 +27,37 @@ class AddGoBreakpointCommand(sublime_plugin.TextCommand):
 					# remove previous breakpoint
 					prevLine.b = prevLine.b+1
 					view.erase(edit, prevLine)
-					self.view.erase_regions("mark"+str(prevLine.begin()))
+					removeMark(self.view, prevLine)
 				elif textContent == breakpointText:
 					line.b = line.b+1
 					view.erase(edit, line)
-					self.view.erase_regions("mark"+str(line.begin()))
+					removeMark(self.view, line)
 				else:
 					# add breakpoint line before current line
 					newLineContent = lineContents.replace(textContent, breakpointText+"\n")
 					# Add the text at the beginning of the line
 					view.insert(edit, line.begin(), newLineContent)
-					self.view.add_regions("mark"+str(line.begin()), [line], "mark", "circle", sublime.HIDDEN | sublime.PERSISTENT)
+					addMark(self.view, line)
 
 pkgsSet = set()
 filesSet = set()
+marksSet = set()
+
+def addMark(view, line):
+	key = "mark"+str(line.begin())
+	view.add_regions(key, [line], "mark", "circle", sublime.HIDDEN | sublime.PERSISTENT)
+	marksSet.add(key)
+
+def removeMark(view, line):
+	key = "mark"+str(line.begin())
+	view.erase_regions(key)
+	if key in marksSet:
+		marksSet.remove(key)
+
+def clearMarks(view):
+	for key in marksSet:
+		view.erase_regions(key)
+	marksSet.clear()
 
 def updateBreakpointInfo(view):
 	filePath = view.file_name()
@@ -48,6 +65,7 @@ def updateBreakpointInfo(view):
 		return
 	bpRegions = view.find_all(breakpointText)
 	pkgPath = getPkgPathForFile(filePath)
+	clearMarks(view)
 	if len(bpRegions) == 0:
 		# remove from breakpoint file list
 		print(filePath, "no breakpoint found")
@@ -62,7 +80,7 @@ def updateBreakpointInfo(view):
 		filesSet.add(filePath)
 		for region in bpRegions:
 			line = view.line(region)
-			view.add_regions("mark"+str(line.begin()), [line], "mark", "circle", sublime.HIDDEN | sublime.PERSISTENT)
+			addMark(view, line)
 
 	print("pkgsSet", pkgsSet)
 	print("filesSet", filesSet)
