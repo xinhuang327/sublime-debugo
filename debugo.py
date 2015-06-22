@@ -85,6 +85,8 @@ class EventDump(sublime_plugin.EventListener):
 		updateBreakpointInfo(view)
 
 	def on_post_save(self, view):
+		if not view.file_name().endswith(".go"):
+			return
 		instrumentPart = ""
 		if len(pkgsSet) > 0:
 			instrumentPart = "-instrument " + ",".join(list(pkgsSet))
